@@ -15,17 +15,14 @@ ill_char db "bad_char", 10
 ILL_C_L  equ $ - ill_char
 to_less_arg db "To less arg", 10
 TO_L_ARG_L  equ $ - to_less_arg
+debug db "debug", 10
+DEBUG_L equ $ - debug
 ;chars    db "12k3456789:m<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 ;CHARS_L  equ $ - chars
 
 section .text
 
 _start:
-  mov     rax, SYS_WRITE
-  mov     edi, STDOUT
-  mov     rsi, hello   ; Wypisz hello i linii.
-  mov     edx, 6          ; Wypisz 6 bajt.
-  syscall
   lea     rbp, [rsp + 8]  ; adres args[0]
   mov     ebx, 3          ;licznik
 arg_loop:
@@ -33,14 +30,23 @@ arg_loop:
   mov     rsi, [rbp]      ; adres kolejnego argumentu
   test    rsi, rsi
   jz      exit_less_arg    ; Napotkano zerowy wskaźnik, za malo argumentów.
-  cld                     ; Zwiększaj indeks przy przeszukiwaniu napisu.
-  xor     al, al          ; Szukaj zera.
   mov     ecx, MAX_LINE   ; Ogranicz przeszukiwanie do MAX_LINE znaków.
   mov     rdi, rsi        ; Ustaw adres, od którego rozpocząć szukanie.
-  repne \
-  scasb                   ; Szukaj bajtu o wartości zero rdi rosnie
+char_loop:
+  mov     r12b, [rdi]      ; zapisz znak
+  test    r12, r12       
+  jz      check_count     ; koniec slowa
+  dec     ecx
+  jz      exit_debug   ; za dlugi napis nie sprawdzam dalej
+  cmp     r12, 49       ; '1' = 49 ASCII
+  jb      exit_debug
+  cmp     r12, 90       ; '90' = 'Z' 
+  ja      exit_debug
+  inc     rdi          ; przesuwam wskaznik
+  jmp     char_loop
+check_count:
   sub     rdi, rsi        ; liczba bajtów w arg
-  cmp     rdi, 43         ; 42 znaki plus \0
+  cmp     rdi, 42         ; 42 znaki w permutacji
   jne     exit_ill_char   ; za duze/male argumenty
   dec     ebx             ; i--
   jnz     arg_loop
@@ -55,7 +61,7 @@ exit_ill_char:
   mov     edx, ILL_C_L          
   syscall
   mov     eax, SYS_EXIT   
-  mov     edi, 1
+  mov     rdi, 1
   syscall
 exit_less_arg:
   mov     rax, SYS_WRITE
@@ -65,4 +71,13 @@ exit_less_arg:
   syscall
   mov     eax, SYS_EXIT  
   mov     edi, 1
+  syscall
+exit_debug:
+  mov     rax, SYS_WRITE
+  mov     edi, STDOUT
+  mov     rsi, debug   ; Wypisz komunikat.
+  mov     edx, DEBUG_L          
+  syscall
+  mov     eax, SYS_EXIT  
+  mov     rdi, 1
   syscall
