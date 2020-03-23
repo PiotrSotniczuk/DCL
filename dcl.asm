@@ -27,6 +27,8 @@ _start:
   mov     edx, 6          ; Wypisz 6 bajt.
   syscall
   lea     rbp, [rsp + 8]  ; adres args[0]
+  mov     ebx, 3          ;licznik
+arg_loop:
   add     rbp, 8           ; adres pierwszego argumentu 
   mov     rsi, [rbp]      ; adres kolejnego argumentu
   test    rsi, rsi
@@ -40,7 +42,8 @@ _start:
   sub     rdi, rsi        ; liczba bajtów w arg
   cmp     rdi, 43         ; 42 znaki plus \0
   jne     exit_ill_char   ; za duze/male argumenty
-  jmp     exit
+  dec     ebx             ; i--
+  jnz     arg_loop
 exit:
   mov     eax, SYS_EXIT
   xor     edi, edi        ; kod powrotu 0
