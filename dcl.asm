@@ -63,6 +63,20 @@ check_count:
   jne     exit_bad_char   ; za duze/male argumenty
   dec     ebx             ; i--
   jnz     arg_loop
+  mov     r9, 0
+check_perm_loop:
+  mov     r12b, [rsi + r9]    ; r12 = znak
+  sub     r12b, 49
+  mov     r8b, [rsi + r12] ; co jest na miejscu pierwotnym znaku w r12
+  sub     r8b, 49
+  cmp     r12b, r8b
+  je      exit_debug           ; cykl jednoelementowy
+  cmp     r9, r8          ; czy miejsce pierwotne r8 to akt sprawdzane miejsce
+  jne     exit_debug      ; nie ma cyklu dwuelem  
+  inc     r9
+  cmp     r9, 42
+  jne     check_perm_loop
+
 exit:
   mov     eax, SYS_EXIT
   xor     edi, edi        ; kod powrotu 0
