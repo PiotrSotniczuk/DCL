@@ -27,16 +27,27 @@ zero_loop:                ; filling with zeros
   jnz     zero_loop
 %endmacro
 
+%macro next_arg 0
+  add     rbp, 8           ; adres argumentu 
+  mov     rsi, [rbp]      ; adres kolejnego argumentu
+  test    rsi, rsi
+  jz      exit_arg    ; Napotkano zerowy wskaźnik, za malo argumentów.
+%endmacro
+  
+%macro check_char 1
+  cmp     %1, 49       ; '1' = 49 ASCII
+  jb      exit_bad_char
+  cmp     %1, 90       ; '90' = 'Z' 
+  ja      exit_bad_char
+%endmacro
+
 section .text
 
 _start:
   lea     rbp, [rsp + 8]  ; adres args[0]
   mov     ebx, 3          ;licznik
 arg_loop:
-  add     rbp, 8           ; adres pierwszego argumentu 
-  mov     rsi, [rbp]      ; adres kolejnego argumentu
-  test    rsi, rsi
-  jz      exit_less_arg    ; Napotkano zerowy wskaźnik, za malo argumentów.
+  next_arg
   mov     ecx, MAX_LINE   ; Ogranicz przeszukiwanie do MAX_LINE znaków.
   mov     rdi, rsi        ; Ustaw adres, od którego rozpocząć szukanie.
   set_zeros
@@ -46,10 +57,7 @@ char_loop:
   jz      check_count     ; koniec slowa
   dec     ecx
   jz      exit_bad_char   ; za dlugi napis nie sprawdzam dalej
-  cmp     r12b, 49       ; '1' = 49 ASCII
-  jb      exit_bad_char
-  cmp     r12b, 90       ; '90' = 'Z' 
-  ja      exit_bad_char
+  check_char r12b
   sub     r12, 49
   mov     r8b, [present + r12]  ; patrze czy juz zajete miejsce
   test    r8b, r8b         
@@ -70,12 +78,26 @@ check_perm_loop:
   mov     r8b, [rsi + r12] ; co jest na miejscu pierwotnym znaku w r12
   sub     r8b, 49
   cmp     r12b, r8b
-  je      exit_debug           ; cykl jednoelementowy
+  je      exit_bad_char           ; cykl jednoelementowy
   cmp     r9, r8          ; czy miejsce pierwotne r8 to akt sprawdzane miejsce
-  jne     exit_debug      ; nie ma cyklu dwuelem  
+  jne     exit_bad_char      ; nie ma cyklu dwuelem  
   inc     r9
   cmp     r9, 42
   jne     check_perm_loop
+
+  next_arg
+  mov     r10b, [rsi]     ; akt wartosci bebnow
+  check_char r10b
+  mov     r11b, [rsi + 1]
+  check_char r11b
+  add     rbp, 8           ; adres argumentu 
+  mov     rsi, [rbp]      ; adres kolejnego argumentu
+  test    rsi, rsi
+  jnz     exit_arg        ; za duzo arg
+
+
+
+
 
 exit:
   mov     eax, SYS_EXIT
@@ -92,7 +114,7 @@ exit_bad_char:
   mov     eax, SYS_EXIT   
   mov     rdi, 1
   syscall
-exit_less_arg:
+exit_arg:
   mov     rax, SYS_WRITE
   mov     edi, STDOUT
   mov     rsi, to_less_arg   ; Wypisz komunikat.
