@@ -18,11 +18,14 @@ DEBUG_L equ $ - debug
 section .bss
 
 present resb 42
+L_1     resb 42     ; miejsce na zapis w tablicy znakow
+P_1     resb 42
+LPT     resb 24      ; miejsce na zapisanie adresu do tablicy   
 
-%macro set_zeros 0     
+%macro set_zeros 1     
   mov     r9, 42
 zero_loop:                ; filling with zeros
-  mov     byte [present + r9 - 1], 0
+  mov     byte [%1 + r9 - 1], 0
   dec     r9
   jnz     zero_loop
 %endmacro
@@ -45,45 +48,61 @@ section .text
 
 _start:
   lea     rbp, [rsp + 8]  ; adres args[0]
-  mov     ebx, 3          ;licznik
-arg_loop:
-  next_arg
-  mov     ecx, MAX_LINE   ; Ogranicz przeszukiwanie do MAX_LINE znaków.
-  mov     rdi, rsi        ; Ustaw adres, od którego rozpocząć szukanie.
-  set_zeros
-char_loop:
-  mov     r12b, [rdi]      ; zapisz znak
-  test    r12b, r12b       
-  jz      check_count     ; koniec slowa
-  dec     ecx
-  jz      exit_bad_char   ; za dlugi napis nie sprawdzam dalej
-  check_char r12b
-  sub     r12, 49
-  mov     r8b, [present + r12]  ; patrze czy juz zajete miejsce
-  test    r8b, r8b         
-  jnz     exit_bad_char      ; jesli juz sie pojawil taki znak 
-  mov     byte [present + r12], 1 ; zajmij
-  inc     rdi          ; przesuwam wskaznik
-  jmp     char_loop
-check_count:
-  sub     rdi, rsi        ; liczba bajtów w arg
-  cmp     rdi, 42         ; 42 znaki w permutacji
-  jne     exit_bad_char   ; za duze/male argumenty
-  dec     ebx             ; i--
-  jnz     arg_loop
+  mov     ebx, 0          ;licznik
+  mov     r12d, 0
+  arg_loop:
+    next_arg
+    mov     ecx, MAX_LINE   ; Ogranicz przeszukiwanie do MAX_LINE znaków.
+    mov     rdi, rsi        ; Ustaw adres, od którego rozpocząć szukanie.
+    mov     [LPT + ebx*8], rsi
+    set_zeros present
+      char_loop:
+        mov     r12b, [rdi]      ; zapisz znak
+        test    r12b, r12b       
+        jz      check_count     ; koniec slowa
+        dec     ecx
+        jz      exit_bad_char   ; za dlugi napis nie sprawdzam dalej
+        check_char r12b
+        sub     r12b, 49
+        mov     byte [rdi], r12b  ; odejmij 49 
+        mov     r8b, [present + r12]  ; patrze czy juz zajete miejsce
+        test    r8b, r8b         
+        jnz     exit_bad_char      ; jesli juz sie pojawil taki znak 
+        mov     byte [present + r12], 1 ; zajmij
+        inc     rdi          ; przesuwam wskaznik
+        jmp     char_loop
+    check_count:
+      sub     rdi, rsi        ; liczba bajtów w arg
+      cmp     rdi, 42         ; 42 znaki w permutacji
+      jne     exit_bad_char   ; za duze/male argumenty
+      inc     ebx             ; i++
+      cmp     ebx, 3
+      jne     arg_loop
+
+
   mov     r9, 0
-check_perm_loop:
+check_perm_T:
   mov     r12b, [rsi + r9]    ; r12 = znak
-  sub     r12b, 49
   mov     r8b, [rsi + r12] ; co jest na miejscu pierwotnym znaku w r12
-  sub     r8b, 49
   cmp     r12b, r8b
   je      exit_bad_char           ; cykl jednoelementowy
   cmp     r9, r8          ; czy miejsce pierwotne r8 to akt sprawdzane miejsce
   jne     exit_bad_char      ; nie ma cyklu dwuelem  
   inc     r9
   cmp     r9, 42
-  jne     check_perm_loop
+  jne     check_perm_T 
+
+;cmp rsi, [LPT + 16]
+ ; je exit_debug  
+
+  mov     r9, [LPT]        ; r9 = poczatek stringu permutacji
+  mov     r11, L_1
+  call    near set_1
+
+  mov     r9, [LPT + 8]        ; r9 = poczatek stringu permutacji
+  mov     r11, P_1
+  call    near set_1
+
 
   next_arg
   mov     r10b, [rsi]     ; akt wartosci bebnow
@@ -94,9 +113,6 @@ check_perm_loop:
   mov     rsi, [rbp]      ; adres kolejnego argumentu
   test    rsi, rsi
   jnz     exit_arg        ; za duzo arg
-
-
-
 
 
 exit:
@@ -132,3 +148,16 @@ exit_debug:
   mov     eax, SYS_EXIT  
   mov     rdi, 1
   syscall
+
+  set_1:
+  mov     r8b, 0
+  mov     r10d, 0
+set_1_loop:
+  mov     r10b, [r9]      ; r10 = znak z permutacji
+  mov     byte [r11 + r10], r8b ; odwrocenie permutacji
+  inc     r9
+  inc     r8b
+  cmp     r8b, 42
+  jne     set_1_loop
+  ret
+  
