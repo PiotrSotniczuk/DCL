@@ -1,8 +1,10 @@
 SYS_WRITE equ 1
+SYS_READ  equ 0
+STDIN     equ 0
 SYS_EXIT  equ 60
 STDOUT    equ 1
 MAX_LINE  equ 50
-BUFF_SIZE equ 10
+BUFF_SIZE equ 100
 TAB_SIZE  equ 42
 
 ; Wykonanie programu zaczyna się od etykiety _start.
@@ -48,12 +50,12 @@ zero_loop:                ; filling with zeros
 %endmacro
 
 %macro find_akt 2
-  check_char %1
+  check_char %1           ; szuka miejsca na bebnie
   sub     %1, 49
   cld
   mov     al, %1
   mov     ecx, TAB_SIZE
-  mov     rdi, %2
+  mov     rdi, %2         ; ustawi rdi za szukanym znakiem
   repne \
   scasb
   dec     rdi
@@ -131,6 +133,61 @@ check_perm_T:
   mov     rsi, [rbp]      ; adres kolejnego argumentu
   test    rsi, rsi
   jnz     exit_arg        ; za duzo arg
+
+
+read_loop:
+  mov     rdx, BUFF_SIZE
+  mov     rsi, buffer
+  mov     rdi, STDIN
+  mov     rax, SYS_READ
+  syscall
+
+  cmp     eax, 0      ; end of input
+  je      exit
+  jl     exit_debug
+
+  mov     r8d, 0
+coding_loop:          ; increase modulo P
+  inc     r15
+  mov     r9, [LPT]         
+  add     r9, 42
+  cmp     r15, r9
+  jne     no_oveflow_P 
+  sub     r15, 42
+no_oveflow_P:
+  cmp     byte [r15], 'L'      ; check if increase L
+  je      move_L
+  cmp     byte [r15], 'R'
+  je      move_L
+  cmp     byte [r15], 'T'
+  je      move_L
+  jmp     no_overflow_L
+move_L:
+  inc     r14           ; increase modulo L
+  mov     r9, [LPT + 8]
+  add     r9, 42
+  cmp     r14, r9
+  jne     no_overflow_L
+  sub     r14, 42
+no_overflow_L:
+
+  mov     r12b, [buffer + r8]
+  check_char r12b
+  ;sub     r12b, 49  
+  ; wykonaj permutacje
+
+  mov     byte [buffer + r8], r12b
+  inc     r8d
+  cmp     r8d, eax
+  jne     coding_loop
+
+  mov     rdx, rax          ; print
+  mov     rsi, buffer
+  mov     edi, STDOUT
+  mov     rax, SYS_WRITE
+  syscall
+  jmp     read_loop
+
 
 
 exit:
