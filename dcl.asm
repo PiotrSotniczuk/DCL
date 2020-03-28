@@ -140,6 +140,11 @@ check_perm_T:
   check_char r15b
   sub     r15b, 49
 
+  xor     r9, r9
+  mov     r9b, [rsi + 2]
+  test    r9, r9
+  jnz     exit_bad_char
+
   add     rbp, 8           ; adres argumentu 
   mov     rsi, [rbp]      ; adres kolejnego argumentu
   test    rsi, rsi
