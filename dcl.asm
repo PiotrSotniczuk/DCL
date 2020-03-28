@@ -62,18 +62,6 @@ set_1_loop_%1:
   jne     set_1_loop_%1
 %endmacro
 
-%macro find_akt 2
-  check_char %1           ; szuka miejsca na bebnie
-  sub     %1, 49
-  cld
-  mov     al, %1
-  mov     ecx, TAB_SIZE
-  mov     rdi, %2         ; ustawi rdi za szukanym znakiem
-  repne \
-  scasb
-  dec     rdi
-%endmacro
-
 %macro q_plus 3
   mov     r13b, %1
   add     r13b, %2
@@ -142,19 +130,20 @@ check_perm_T:
   set_1 P
 
   next_arg
+  xor     r14, r14
   mov     r14b, [rsi]     ; akt wartosci bebnow
-  find_akt r14b, [LRT]
-  mov     r14, rdi        ; adres akt wartoosci bebna L
-
+  check_char r14b
+  sub     r14b, 49
+  
+  xor     r15, r15
   mov     r15b, [rsi + 1]
-  find_akt r15b, [LRT + 8]
-  mov     r15, rdi
+  check_char r15b
+  sub     r15b, 49
 
   add     rbp, 8           ; adres argumentu 
   mov     rsi, [rbp]      ; adres kolejnego argumentu
   test    rsi, rsi
   jnz     exit_arg        ; za duzo arg
-
 
 read_loop:
   mov     rdx, BUFF_SIZE
@@ -165,78 +154,70 @@ read_loop:
 
   cmp     eax, 0      ; end of input
   je      exit
-  jl     exit_debug
 
   xor     rcx, rcx
   mov     r8d, 0
 coding_loop:          ; increase modulo R
-  inc     r15
-  mov     r9, [LRT + 8]         
-  add     r9, 42
-  cmp     r15, r9
+  inc     r15b
+  cmp     r15b, 42
   jne     no_oveflow_R 
   sub     r15, 42
 no_oveflow_R:
-  cmp     byte [r15], 27      ; check if increase L
+  cmp     r15b, 27      ; check if increase L
   je      move_L
-  cmp     byte [r15], 33      ; R
+  cmp     r15b, 33      ; R
   je      move_L
-  cmp     byte [r15], 35      ; T
+  cmp     r15b, 35      ; T
   je      move_L
-  jmp     no_overflow_L
+  jmp     no_move_L
 move_L:
-  inc     r14           ; increase modulo L
-  mov     r9, [LRT]
-  add     r9, 42
-  cmp     r14, r9
-  jne     no_overflow_L
-  sub     r14, 42
-no_overflow_L:
+  inc     r14b           ; increase modulo L
+  cmp     r14b, 42
+  jne     no_move_L
+  sub     r14b, 42
+no_move_L:
 
   mov     r12b, [buffer + r8]
   check_char r12b
   sub     r12b, 49  
   
-  mov     cl, [r15]
-  mov     bl, [r14]
-
   xor     r13, r13
 
-  q_plus r12b, cl, Qr1      ; Qr
+  q_plus r12b, r15b, Qr1      ; Qr
 
   mov     r9, [LRT + 8]     ;R
   mov     r12b, [r9 + r13]
 
   mov     r11b, 42
-  sub     r11b, cl
+  sub     r11b, r15b
   q_plus  r12b, r11b, Q_r1    ;Q-r
 
-  q_plus r12b, bl, Ql1      ; Ql
+  q_plus r12b, r14b, Ql1      ; Ql
   
   mov     r9, [LRT]     ;L
   mov     r12b, [r9 + r13]
 
   mov     r11b, 42
-  sub     r11b, bl
+  sub     r11b, r14b
   q_plus  r12b, r11b, Q_l1    ;Q-l
 
   mov     r9, [LRT + 16]     ;T
   mov     r12b, [r9 + r13]
 
-  q_plus r12b, bl, Ql2      ; Ql
+  q_plus r12b, r14b, Ql2      ; Ql
 
   mov     r12b, [L_1 + r13]    ;L-1
 
   mov     r11b, 42
-  sub     r11b, bl
+  sub     r11b, r14b
   q_plus  r12b, r11b, Q_l2    ;Q-l
 
-  q_plus r12b, cl, Qr2      ; Qr
+  q_plus r12b, r15b, Qr2      ; Qr
 
   mov     r12b, [P_1 + r13]
 
   mov     r11b, 42
-  sub     r11b, cl
+  sub     r11b, r15b
   q_plus  r12b, r11b, Q_r2    ;Q-r
   
 
@@ -262,20 +243,10 @@ exit:
 
 
 exit_bad_char:
-  mov     rax, SYS_WRITE
-  mov     edi, STDOUT
-  mov     rsi, bad_char   ; Wypisz komunikat.
-  mov     edx, BAD_C_L          
-  syscall
   mov     eax, SYS_EXIT   
   mov     rdi, 1
   syscall
 exit_arg:
-  mov     rax, SYS_WRITE
-  mov     edi, STDOUT
-  mov     rsi, to_less_arg   ; Wypisz komunikat.
-  mov     edx, TO_L_ARG_L          
-  syscall
   mov     eax, SYS_EXIT  
   mov     edi, 1
   syscall
