@@ -49,6 +49,19 @@ zero_loop:                ; filling with zeros
   ja      exit_bad_char
 %endmacro
 
+%macro set_1 1
+  mov     r11, %1_1
+  mov     r8b, 0
+  mov     r10d, 0
+set_1_loop_%1:
+  mov     r10b, [r9]      ; r10 = znak z permutacji
+  mov     byte [r11 + r10], r8b ; odwrocenie permutacji
+  inc     r9
+  inc     r8b
+  cmp     r8b, TAB_SIZE
+  jne     set_1_loop_%1
+%endmacro
+
 %macro find_akt 2
   check_char %1           ; szuka miejsca na bebnie
   sub     %1, 49
@@ -61,10 +74,14 @@ zero_loop:                ; filling with zeros
   dec     rdi
 %endmacro
 
-%macro q_plus 2
+%macro q_plus 3
   mov     r13b, %1
   add     r13b, %2
   cmp     r13b, 42
+  jb      change_%3
+  sub     r13b, 42
+change_%3:
+  mov     r12b, r13b
 %endmacro
 
 section .text
@@ -119,12 +136,10 @@ check_perm_T:
  ; je exit_debug  
 
   mov     r9, [LRT]        ; r9 = poczatek stringu permutacji
-  mov     r11, L_1
-  call    near set_1
+  set_1 L 
 
   mov     r9, [LRT + 8]        ; r9 = poczatek stringu permutacji
-  mov     r11, P_1
-  call    near set_1
+  set_1 P
 
   next_arg
   mov     r14b, [rsi]     ; akt wartosci bebnow
@@ -164,9 +179,9 @@ coding_loop:          ; increase modulo R
 no_oveflow_R:
   cmp     byte [r15], 27      ; check if increase L
   je      move_L
-  cmp     byte [r15], 33
+  cmp     byte [r15], 33      ; R
   je      move_L
-  cmp     byte [r15], 35
+  cmp     byte [r15], 35      ; T
   je      move_L
   jmp     no_overflow_L
 move_L:
@@ -187,74 +202,42 @@ no_overflow_L:
 
   xor     r13, r13
 
-  q_plus r12b, cl      ; Qr
-  jb      change_1
-  sub     r13b, 42
-change_1:
-  mov     r12b, r13b
+  q_plus r12b, cl, Qr1      ; Qr
 
   mov     r9, [LRT + 8]     ;R
   mov     r12b, [r9 + r13]
 
   mov     r11b, 42
   sub     r11b, cl
-  q_plus  r12b, r11b    ;Q-r
-  jb      change_2
-  sub     r13b, 42
-change_2:
-  mov     r12b, r13b
+  q_plus  r12b, r11b, Q_r1    ;Q-r
 
-  q_plus r12b, bl      ; Ql
-  jb      change_3
-  sub     r13b, 42
-change_3:
-  mov     r12b, r13b
-
+  q_plus r12b, bl, Ql1      ; Ql
+  
   mov     r9, [LRT]     ;L
   mov     r12b, [r9 + r13]
 
   mov     r11b, 42
   sub     r11b, bl
-  q_plus  r12b, r11b    ;Q-l
-  jb      change_4
-  sub     r13b, 42
-change_4:
-  mov     r12b, r13b
+  q_plus  r12b, r11b, Q_l1    ;Q-l
 
   mov     r9, [LRT + 16]     ;T
   mov     r12b, [r9 + r13]
 
-  q_plus r12b, bl      ; Ql
-  jb      change_5
-  sub     r13b, 42
-change_5:
-  mov     r12b, r13b
+  q_plus r12b, bl, Ql2      ; Ql
 
   mov     r12b, [L_1 + r13]    ;L-1
 
   mov     r11b, 42
   sub     r11b, bl
-  q_plus  r12b, r11b    ;Q-l
-  jb      change_6
-  sub     r13b, 42
-change_6:
-  mov     r12b, r13b
+  q_plus  r12b, r11b, Q_l2    ;Q-l
 
-  q_plus r12b, cl      ; Qr
-  jb      change_7
-  sub     r13b, 42
-change_7:
-  mov     r12b, r13b
+  q_plus r12b, cl, Qr2      ; Qr
 
   mov     r12b, [P_1 + r13]
 
   mov     r11b, 42
   sub     r11b, cl
-  q_plus  r12b, r11b    ;Q-r
-  jb      change_8
-  sub     r13b, 42
-change_8:
-  mov     r12b, r13b
+  q_plus  r12b, r11b, Q_r2    ;Q-r
   
 
   add     r12b, 49
@@ -305,16 +288,3 @@ exit_debug:
   mov     eax, SYS_EXIT  
   mov     rdi, r12
   syscall
-
-set_1:
-  mov     r8b, 0
-  mov     r10d, 0
-set_1_loop:
-  mov     r10b, [r9]      ; r10 = znak z permutacji
-  mov     byte [r11 + r10], r8b ; odwrocenie permutacji
-  inc     r9
-  inc     r8b
-  cmp     r8b, TAB_SIZE
-  jne     set_1_loop
-  ret
-  
