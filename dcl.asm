@@ -1,52 +1,34 @@
 SYS_WRITE equ 1
 SYS_READ  equ 0
-STDIN     equ 0
 SYS_EXIT  equ 60
+STDIN     equ 0
 STDOUT    equ 1
-MAX_LINE  equ 50
-BUFF_SIZE equ 100
+MAX_LINE  equ 45
+BUFF_SIZE equ 10000
 TAB_SIZE  equ 42
 
-; Wykonanie programu zaczyna się od etykiety _start.
 global _start
-
-section .rodata
-
-bad_char db "bad_char", 10
-BAD_C_L  equ $ - bad_char
-to_less_arg db "To less arg", 10
-TO_L_ARG_L  equ $ - to_less_arg
-debug db "debug", 10
-DEBUG_L equ $ - debug
 
 section .bss
 
-present resb TAB_SIZE
+present  resb 3*TAB_SIZE
 L_1:     resb TAB_SIZE     ; miejsce na zapis w tablicy znakow
 P_1:     resb TAB_SIZE
 LRT:     resb 24      ; miejsce na zapisanie adresu do tablicy   
 buffer:  resb BUFF_SIZE
 
-%macro set_zeros 1     
-  mov     r9, TAB_SIZE
-zero_loop:                ; filling with zeros
-  mov     byte [%1 + r9 - 1], 0
-  dec     r9
-  jnz     zero_loop
-%endmacro
-
 %macro next_arg 0
   add     rbp, 8           ; adres argumentu 
   mov     rsi, [rbp]      ; adres kolejnego argumentu
   test    rsi, rsi
-  jz      exit_arg    ; Napotkano zerowy wskaźnik, za malo argumentów.
+  jz      ex_1    ; Napotkano zerowy wskaźnik, za malo argumentów.
 %endmacro
   
 %macro check_char 1
   cmp     %1, 49       ; '1' = 49 ASCII
-  jb      exit_bad_char
+  jb      ex_1
   cmp     %1, 90       ; '90' = 'Z' 
-  ja      exit_bad_char
+  ja      ex_1
 %endmacro
 
 %macro set_1 1
@@ -76,33 +58,33 @@ section .text
 
 _start:
   lea     rbp, [rsp + 8]  ; adres args[0]
-  mov     ebx, 0          ;licznik
-  mov     r12d, 0
+  xor     ebx, ebx          ; licznik na 0
+  mov     r9, present
   arg_loop:
     next_arg
     mov     ecx, MAX_LINE   ; Ogranicz przeszukiwanie do MAX_LINE znaków.
     mov     rdi, rsi        ; Ustaw adres, od którego rozpocząć szukanie.
     mov     [LRT + ebx*8], rsi
-    set_zeros present
-      char_loop:
-        mov     r12b, [rdi]      ; zapisz znak
-        test    r12b, r12b       
+    char_loop:
+        mov     al, [rdi]      ; zapisz znak
+        test    al, al       
         jz      check_count     ; koniec slowa
         dec     ecx
-        jz      exit_bad_char   ; za dlugi napis nie sprawdzam dalej
-        check_char r12b
-        sub     r12b, 49
-        mov     byte [rdi], r12b  ; odejmij 49 
-        mov     r8b, [present + r12]  ; patrze czy juz zajete miejsce
+        jz      ex_1   ; za dlugi napis nie sprawdzam dalej
+        check_char al
+        sub     al, 49
+        mov     byte [rdi], al  ; odejmij 49 
+        mov     r8b, [r9 + rax]  ; patrze czy juz zajete miejsce
         test    r8b, r8b         
-        jnz     exit_bad_char      ; jesli juz sie pojawil taki znak 
-        mov     byte [present + r12], 1 ; zajmij
+        jnz     ex_1      ; jesli juz sie pojawil taki znak 
+        mov     byte [r9 + rax], 1 ; zajmij
         inc     rdi          ; przesuwam wskaznik
         jmp     char_loop
     check_count:
       sub     rdi, rsi        ; liczba bajtów w arg
       cmp     rdi, TAB_SIZE         ; 42 znaki w permutacji
-      jne     exit_bad_char   ; za duze/male argumenty
+      jne     ex_1   ; za duze/male argumenty
+      add     r9, 42
       inc     ebx             ; i++
       cmp     ebx, 3
       jne     arg_loop
@@ -113,15 +95,12 @@ check_perm_T:
   mov     r12b, [rsi + r9]    ; r12 = znak
   mov     r8b, [rsi + r12] ; co jest na miejscu pierwotnym znaku w r12
   cmp     r12b, r8b
-  je      exit_bad_char           ; cykl jednoelementowy
+  je      ex_1           ; cykl jednoelementowy
   cmp     r9, r8          ; czy miejsce pierwotne r8 to akt sprawdzane miejsce
-  jne     exit_bad_char      ; nie ma cyklu dwuelem  
+  jne     ex_1      ; nie ma cyklu dwuelem  
   inc     r9
   cmp     r9, TAB_SIZE
   jne     check_perm_T 
-
-;cmp rsi, [LRT + 16]assertion
- ; je exit_debug  
 
   mov     r9, [LRT]        ; r9 = poczatek stringu permutacji
   set_1 L 
@@ -143,12 +122,12 @@ check_perm_T:
   xor     r9, r9
   mov     r9b, [rsi + 2]
   test    r9, r9
-  jnz     exit_bad_char
+  jnz     ex_1
 
   add     rbp, 8           ; adres argumentu 
   mov     rsi, [rbp]      ; adres kolejnego argumentu
   test    rsi, rsi
-  jnz     exit_arg        ; za duzo arg
+  jnz     ex_1        ; za duzo arg
 
 read_loop:
   mov     rdx, BUFF_SIZE
@@ -158,7 +137,7 @@ read_loop:
   syscall
 
   cmp     eax, 0      ; end of input
-  je      exit
+  je      ex_0
 
   xor     rcx, rcx
   mov     r8d, 0
@@ -239,28 +218,12 @@ no_move_L:
   syscall
   jmp     read_loop
 
-
-
-exit:
+ex_0:
   mov     eax, SYS_EXIT
   xor     edi, edi        ; kod powrotu 0
   syscall
 
-
-exit_bad_char:
+ex_1:
   mov     eax, SYS_EXIT   
   mov     rdi, 1
-  syscall
-exit_arg:
-  mov     eax, SYS_EXIT  
-  mov     edi, 1
-  syscall
-exit_debug:
-  mov     rax, SYS_WRITE
-  mov     edi, STDOUT
-  mov     rsi, debug   ; Wypisz komunikat.
-  mov     edx, DEBUG_L          
-  syscall
-  mov     eax, SYS_EXIT  
-  mov     rdi, r12
   syscall
