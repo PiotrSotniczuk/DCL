@@ -2,7 +2,7 @@ SYS_WRITE equ 1
 SYS_EXIT  equ 60
 STDOUT    equ 1
 MAX_LINE  equ 45
-BUFF_SIZE equ 10000
+BUFF_SIZE equ 131072
 TAB_SIZE  equ 42
 ASCII_1   equ 49
 ASCII_Z   equ 90
@@ -52,10 +52,10 @@ set_1_loop_%1:
 %endmacro
 
 %macro q_plus 3
-  add     %1, %2
-  cmp     %1, TAB_SIZE
+  add     %1d, %2d
+  cmp     %1d, TAB_SIZE
   jb      change_%3
-  sub     %1, TAB_SIZE
+  sub     %1d, TAB_SIZE
 change_%3:
 %endmacro
 
@@ -125,6 +125,10 @@ check_perm_T:
   test    rsi, rsi
   jnz     ex_1        ; za duzo arg
 
+  mov     r8, [LRT]         ; kazdy wskazuje poczatek czesci
+  mov     r9, [LRT + 8]
+  mov     r10, [LRT + 16]
+
 read_loop:
   mov     edx, BUFF_SIZE
   mov     esi, buffer
@@ -134,78 +138,75 @@ read_loop:
 
   test     eax, eax      ; end of input
   jz      ex_0
-
-  xor     rcx, rcx    
-  xor     r8d, r8d
+  xor     ecx, ecx    
 coding_loop:          ; increase modulo R
   inc     r15d
-  cmp     r15d, TAB_SIZE
-  jne     no_oveflow_R 
-  sub     r15d, TAB_SIZE
+  mov     edi, TAB_SIZE
+  xor     edi, r15d
+  jnz     no_oveflow_R 
+  xor     r15d, TAB_SIZE
 no_oveflow_R:
-  cmp     r15d, 27      ; check if increase L
-  je      move_L
-  cmp     r15d, 33      ; R
-  je      move_L
-  cmp     r15d, 35      ; T
-  je      move_L
+  mov     edi, 27
+  xor     edi, r15d      ; check if increase L
+  jz      move_L
+  mov     edi, 33
+  xor     edi, r15d      ; check if increase R
+  jz      move_L
+  mov     edi, 35
+  xor     edi, r15d      ; check if increase L
+  jz      move_L
   jmp     no_move_L
 move_L:
   inc     r14d           ; increase modulo L
-  cmp     r14d, TAB_SIZE
-  jne     no_move_L
-  sub     r14d, TAB_SIZE
+  mov     edi, TAB_SIZE
+  xor     edi, r14d
+  jnz     no_move_L 
+  xor     r14d, r14d
 no_move_L:
 
-  mov     r12b, [buffer + r8]   ; wczytaj znak
+  mov     r12b, [buffer + rcx]   ; wczytaj znak
   check_char r12d
-  sub     r12d, ASCII_1  
-  
-  q_plus r12d, r15d, Qr1      ; Qr
+  sub     r12d, ASCII_1 
 
-  mov     r9, [LRT + 8]     ;R
-  mov     r12b, [r9 + r12]
-
-  mov     r11d, TAB_SIZE
-  sub     r11d, r15d
-  q_plus  r12d, r11d, Q_r1    ;Q-r
-
-  q_plus r12d, r14d, Ql1      ; Ql
-  
-  mov     r9, [LRT]     ;L
-  mov     r12b, [r9 + r12]
-
-  mov     r11d, TAB_SIZE
+  mov     r11d, TAB_SIZE    ; -l
   sub     r11d, r14d
-  q_plus  r12d, r11d, Q_l1    ;Q-l
 
-  mov     r9, [LRT + 16]     ;T
+  mov     r13d, TAB_SIZE    ; -r
+  sub     r13d, r15d
+  
+  q_plus r12, r15, Qr1      ; Qr
+
   mov     r12b, [r9 + r12]
 
-  q_plus r12d, r14d, Ql2      ; Ql
+  q_plus  r12, r13, Q_r1    ;Q-r
+
+  q_plus r12, r14, Ql1      ; Ql
+  
+  mov     r12b, [r8 + r12]
+
+  q_plus  r12, r11, Q_l1    ;Q-l
+
+  mov     r12b, [r10 + r12]
+
+  q_plus r12, r14, Ql2      ; Ql
 
   mov     r12b, [L_1 + r12]    ;L-1
 
-  mov     r11d, TAB_SIZE
-  sub     r11d, r14d
-  q_plus  r12d, r11d, Q_l2    ;Q-l
+  q_plus  r12, r11, Q_l2    ;Q-l
 
-  q_plus r12d, r15d, Qr2      ; Qr
+  q_plus r12, r15, Qr2      ; Qr
 
-  mov     r12b, [R_1 + r12]
+  mov     r12b, [R_1 + r12]   ;R-1
 
-  mov     r11d, TAB_SIZE
-  sub     r11d, r15d
-  q_plus  r12d, r11d, Q_r2    ;Q-r
-  
+  q_plus  r12, r13, Q_r2    ;Q-r
 
   add     r12d, ASCII_1
-  mov     byte [buffer + r8], r12b
-  inc     r8d
-  cmp     r8d, eax
+  mov     byte [buffer + rcx], r12b
+  inc     ecx
+  cmp     ecx, eax
   jne     coding_loop
 
-  mov     rdx, rax          ; print
+  mov     rdx, rax          ; print buffor
   mov     rsi, buffer
   mov     edi, STDOUT
   mov     rax, SYS_WRITE
@@ -219,5 +220,5 @@ ex_0:
 
 ex_1:
   mov     eax, SYS_EXIT   
-  mov     edi, 1
+  mov     edi, 1          ; kod powrotu 1
   syscall
