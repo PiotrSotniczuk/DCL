@@ -1,7 +1,5 @@
 SYS_WRITE equ 1
-SYS_READ  equ 0
 SYS_EXIT  equ 60
-STDIN     equ 0
 STDOUT    equ 1
 MAX_LINE  equ 45
 BUFF_SIZE equ 10000
@@ -54,13 +52,11 @@ set_1_loop_%1:
 %endmacro
 
 %macro q_plus 3
-  mov     r13b, %1
-  add     r13b, %2
-  cmp     r13b, 42
+  add     %1, %2
+  cmp     %1, TAB_SIZE
   jb      change_%3
-  sub     r13b, 42
+  sub     %1, TAB_SIZE
 change_%3:
-  mov     r12b, r13b
 %endmacro
 
 section .text
@@ -93,7 +89,7 @@ _start:
       sub     rdi, rsi        ; liczba bajtów w arg
       cmp     rdi, TAB_SIZE         ; 42 znaki w permutacji
       jne     ex_1   ; za duze/male argumenty
-      add     r9, 42        ; przesuwam present
+      add     r9, TAB_SIZE        ; przesuwam present
       inc     ebx             ; i++
       cmp     ebx, 3
       jne     arg_loop
@@ -130,82 +126,80 @@ check_perm_T:
   jnz     ex_1        ; za duzo arg
 
 read_loop:
-  mov     rdx, BUFF_SIZE
-  mov     rsi, buffer
-  mov     rdi, STDIN
-  mov     rax, SYS_READ
-  syscall
+  mov     edx, BUFF_SIZE
+  mov     esi, buffer
+  xor     edi, edi        ; STDIN     equ 0
+  xor     eax, eax   ; SYS_READ  equ 0
+  syscall             ; wczytaj dane
 
-  cmp     eax, 0      ; end of input
-  je      ex_0
+  test     eax, eax      ; end of input
+  jz      ex_0
 
-  xor     rcx, rcx
-  mov     r8d, 0
+  xor     rcx, rcx    
+  xor     r8d, r8d
 coding_loop:          ; increase modulo R
-  inc     r15b
-  cmp     r15b, 42
+  inc     r15d
+  cmp     r15d, TAB_SIZE
   jne     no_oveflow_R 
-  sub     r15, 42
+  sub     r15d, TAB_SIZE
 no_oveflow_R:
-  cmp     r15b, 27      ; check if increase L
+  cmp     r15d, 27      ; check if increase L
   je      move_L
-  cmp     r15b, 33      ; R
+  cmp     r15d, 33      ; R
   je      move_L
-  cmp     r15b, 35      ; T
+  cmp     r15d, 35      ; T
   je      move_L
   jmp     no_move_L
 move_L:
-  inc     r14b           ; increase modulo L
-  cmp     r14b, 42
+  inc     r14d           ; increase modulo L
+  cmp     r14d, TAB_SIZE
   jne     no_move_L
-  sub     r14b, 42
+  sub     r14d, TAB_SIZE
 no_move_L:
 
-  mov     r12b, [buffer + r8]
-  check_char r12b
-  sub     r12b, ASCII_1  
+  mov     r12b, [buffer + r8]   ; wczytaj znak
+  check_char r12d
+  sub     r12d, ASCII_1  
   
-  xor     r13, r13
-
-  q_plus r12b, r15b, Qr1      ; Qr
+  q_plus r12d, r15d, Qr1      ; Qr
 
   mov     r9, [LRT + 8]     ;R
-  mov     r12b, [r9 + r13]
+  mov     r12b, [r9 + r12]
 
-  mov     r11b, 42
-  sub     r11b, r15b
-  q_plus  r12b, r11b, Q_r1    ;Q-r
+  mov     r11d, TAB_SIZE
+  sub     r11d, r15d
+  q_plus  r12d, r11d, Q_r1    ;Q-r
 
-  q_plus r12b, r14b, Ql1      ; Ql
+  q_plus r12d, r14d, Ql1      ; Ql
   
   mov     r9, [LRT]     ;L
-  mov     r12b, [r9 + r13]
+  mov     r12b, [r9 + r12]
 
-  mov     r11b, 42
-  sub     r11b, r14b
-  q_plus  r12b, r11b, Q_l1    ;Q-l
+  mov     r11d, TAB_SIZE
+  sub     r11d, r14d
+  q_plus  r12d, r11d, Q_l1    ;Q-l
 
   mov     r9, [LRT + 16]     ;T
-  mov     r12b, [r9 + r13]
+  mov     r12b, [r9 + r12]
 
-  q_plus r12b, r14b, Ql2      ; Ql
+  q_plus r12d, r14d, Ql2      ; Ql
 
-  mov     r12b, [L_1 + r13]    ;L-1
+  mov     r12b, [L_1 + r12]    ;L-1
 
-  mov     r11b, 42
-  sub     r11b, r14b
-  q_plus  r12b, r11b, Q_l2    ;Q-l
+  mov     r11d, TAB_SIZE
+  sub     r11d, r14d
+  q_plus  r12d, r11d, Q_l2    ;Q-l
 
-  q_plus r12b, r15b, Qr2      ; Qr
+  q_plus r12d, r15d, Qr2      ; Qr
 
-  mov     r12b, [R_1 + r13]
+  mov     r12b, [R_1 + r12]
 
-  mov     r11b, 42
-  sub     r11b, r15b
-  q_plus  r12b, r11b, Q_r2    ;Q-r
+  mov     r11d, TAB_SIZE
+  sub     r11d, r15d
+  q_plus  r12d, r11d, Q_r2    ;Q-r
   
 
-  add     r12b, ASCII_1
+  add     r12d, ASCII_1
   mov     byte [buffer + r8], r12b
   inc     r8d
   cmp     r8d, eax
@@ -225,5 +219,5 @@ ex_0:
 
 ex_1:
   mov     eax, SYS_EXIT   
-  mov     rdi, 1
+  mov     edi, 1
   syscall
