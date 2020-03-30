@@ -25,10 +25,9 @@ buffer:  resb BUFF_SIZE
 %endmacro
   
 %macro check_char 1
-  cmp     %1, ASCII_1       ; '1' = 49 ASCII
-  jb      ex_1
-  cmp     %1, ASCII_Z       ; '90' = 'Z' 
-  ja      ex_1
+  sub     %1, ASCII_1
+  cmp     %1, TAB_SIZE 
+  jge      ex_1
 %endmacro
 
 %macro set_1 2
@@ -48,7 +47,6 @@ set_1_loop_%1:
   xor     %1d, %1d
   mov     %1b, [rsi + %2]     ; akt wartosci bebnow
   check_char %1b
-  sub     %1b, ASCII_1
 %endmacro
 
 %macro q_plus 3
@@ -77,7 +75,6 @@ _start:
         dec     ecx
         jz      ex_1   ; za dlugi napis nie sprawdzam dalej
         check_char al
-        sub     al, ASCII_1
         mov     byte [rdi], al  ; zapisz spowrotem 
         mov     r8b, [r9 + rax]  ; patrze czy juz zajete miejsce
         test    r8b, r8b         
@@ -166,7 +163,6 @@ no_move_L:
 
   mov     r12b, [buffer + rcx]   ; wczytaj znak
   check_char r12d
-  sub     r12d, ASCII_1 
 
   mov     r11d, TAB_SIZE    ; -l
   sub     r11d, r14d
