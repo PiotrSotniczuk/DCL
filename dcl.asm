@@ -11,33 +11,33 @@ global _start
 
 section .bss
 
-present  resb 3*TAB_SIZE
-L_1:     resb TAB_SIZE     ; miejsce na zapis w tablicy znakow
+present  resb 3*TAB_SIZE  ; miejsce na 
+L_1:     resb TAB_SIZE    ; tablica trzymajaca L^(-1)
 R_1:     resb TAB_SIZE
-LRT:     resb 24      ; miejsce na zapisanie adresu do tablicy   
-buffer:  resb BUFF_SIZE
+LRT:     resb 24          ; miejsce na zapisanie adresu do tablic w nazwie   
+buffer:  resb BUFF_SIZE   ; do wczytania i wypisania danych
 
-%macro next_arg 0
-  add     rbp, 8           ; adres argumentu 
+%macro next_arg 0         
+  add     rbp, 8          ; przesuwa na adres kolejnego arg 
   mov     rsi, [rbp]      ; adres kolejnego argumentu
   test    rsi, rsi
-  jz      ex_1    ; Napotkano zerowy wskaźnik, za malo argumentów.
+  jz      ex_1            ; napotkano zerowy wskaźnik, za malo argumentów.
 %endmacro
   
 %macro check_char 1
-  sub     %1, ASCII_1
-  cmp     %1, TAB_SIZE 
-  jge      ex_1
+  sub     %1, ASCII_1     ; jesli liczba < ASCII_1 to overflow i duza liczba 
+  cmp     %1, TAB_SIZE    ; jesli miedzy 0 a 41 to przejdzie
+  jge     ex_1
 %endmacro
 
 %macro set_1 2
-  mov     r9, %2        ; r9 to poczatek permutacji
+  mov     r9, %2          ; r9 to poczatek permutacji
   xor     r8d, r8d
   xor     r10d, r10d
 set_1_loop_%1:
   mov     r10b, [r9]      ; r10 = znak z permutacji
   mov     byte [%1_1 + r10], r8b ; odwrocenie permutacji
-  inc     r9            ; zwieksz wskaznik
+  inc     r9             
   inc     r8d
   cmp     r8d, TAB_SIZE
   jne     set_1_loop_%1
@@ -45,50 +45,50 @@ set_1_loop_%1:
 
 %macro set_akt 2
   xor     %1d, %1d
-  mov     %1b, [rsi + %2]     ; akt wartosci bebnow
+  mov     %1b, [rsi + %2] ; akt wartosci bebnow
   check_char %1b
 %endmacro
 
 %macro q_plus 3
-  add     %1d, %2d
-  mov     edi, %1d
-  sub     %1d, TAB_SIZE
-  cmovs   %1d, edi
+  add     %1d, %2d        ; tyle powinno sie przesunac
+  mov     edi, %1d        ; na wszelki wypadek zapamietac
+  sub     %1d, TAB_SIZE   ; zakladam ze przekroczylem 41 
+  cmovs   %1d, edi        ; jesli overflov to zle zalozenie wiec cofam
 %endmacro
 
 section .text
 
 _start:
   lea     rbp, [rsp + 8]  ; adres args[0]
-  xor     ebx, ebx          ; licznik na 0
-  mov     r9, present       
-  arg_loop:
-    next_arg                ; zwieksza rbp i ustawia rsi na kolejny arg
-    mov     ecx, MAX_LINE   ; Ogranicz przeszukiwanie do MAX_LINE znaków.
-    mov     rdi, rsi        ; Ustaw adres, od którego rozpocząć szukanie.
-    mov     [LRT + ebx*8], rsi    
-    char_loop:
-        mov     al, [rdi]      ; zapisz znak
-        test    al, al       
-        jz      check_count     ; koniec slowa
-        dec     ecx
-        jz      ex_1   ; za dlugi napis nie sprawdzam dalej
-        check_char al
-        mov     byte [rdi], al  ; zapisz spowrotem 
-        mov     r8b, [r9 + rax]  ; patrze czy juz zajete miejsce
-        test    r8b, r8b         
-        jnz     ex_1      ; jesli juz sie pojawil taki znak 
-        mov     byte [r9 + rax], 1 ; zajmij
-        inc     rdi          ; przesuwam wskaznik
-        jmp     char_loop
-    check_count:
-      sub     rdi, rsi        ; liczba bajtów w arg
-      cmp     rdi, TAB_SIZE         ; 42 znaki w permutacji
-      jne     ex_1   ; za duze/male argumenty
-      add     r9, TAB_SIZE        ; przesuwam present
-      inc     ebx             ; i++
-      cmp     ebx, 3
-      jne     arg_loop
+  xor     ebx, ebx        ; licznik na 0
+  mov     r9, present     ; wskaznik na tablice zer  
+arg_loop:
+  next_arg                ; zwieksza rbp i ustawia rsi na kolejny arg
+  mov     ecx, MAX_LINE   ; ogranicz przeszukiwanie do MAX_LINE znaków.
+  mov     rdi, rsi        ; ustaw adres, od którego rozpocząć szukanie.
+  mov     [LRT + ebx*8], rsi ; zapamietaj adres argumentu w tablicy LRT   
+char_loop:
+  mov     al, [rdi]       ; zapisz znak
+  test    al, al       
+  jz      check_count     ; koniec danego arg
+  dec     ecx
+  jz      ex_1            ; za dlugi napis nie sprawdzam dalej
+  check_char al
+  mov     byte [rdi], al  ; zapisz spowrotem ale juz pomniejszone o ASCII_1
+  mov     r8b, [r9 + rax] ; patrze czy juz zajete miejsce
+  test    r8b, r8b         
+  jnz     ex_1            ; jesli juz sie pojawil taki znak 
+  mov     byte [r9 + rax], 1 ; zajmij
+  inc     rdi             
+  jmp     char_loop
+check_count:
+  sub     rdi, rsi        ; liczba bajtów w arg
+  cmp     rdi, TAB_SIZE   ; 42 znaki w permutacji
+  jne     ex_1            ; za duze/male argumenty
+  add     r9, TAB_SIZE    ; przesuwam na kolejne 42 niezajete miejsca
+  inc     ebx             
+  cmp     ebx, 3
+  jne     arg_loop
 
   xor     r8, r8
   xor     ecx, ecx
@@ -135,6 +135,7 @@ read_loop:
 
   test     eax, eax      ; end of input
   jz      ex_0
+  js      ex_1
   xor     ecx, ecx    
 coding_loop:          ; increase modulo R
   inc     r15d
@@ -194,6 +195,8 @@ no_move_L:
   mov     edi, STDOUT
   mov     rax, SYS_WRITE
   syscall
+  test    rax, rax
+  js      ex_1
   jmp     read_loop
 
 move_L:
