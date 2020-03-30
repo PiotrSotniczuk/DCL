@@ -52,9 +52,8 @@ set_1_loop_%1:
 %macro q_plus 3
   add     %1d, %2d
   mov     edi, %1d
-  sub     edi, TAB_SIZE
-  cmp     %1d, TAB_SIZE
-  cmovge  %1d, edi
+  sub     %1d, TAB_SIZE
+  cmovs   %1d, edi
 %endmacro
 
 section .text
@@ -140,17 +139,14 @@ read_loop:
 coding_loop:          ; increase modulo R
   inc     r15d
   cmp     r15d, TAB_SIZE
-  cmovge  r15d, ebx
+  cmovge  r15d, ebx     ; ebx = 0
   
-  mov     edi, 27
-  xor     edi, r15d      ; check if increase L
-  jz      move_L
-  mov     edi, 33
-  xor     edi, r15d      ; check if increase L
-  jz      move_L
-  mov     edi, 35
-  xor     edi, r15d      ; check if increase L
-  jz      move_L
+  cmp     r15d, 27
+  je      move_L          ; check if increase L
+  cmp     r15d, 33
+  je      move_L          ; check if increase L
+  cmp     r15d, 35
+  je      move_L
 no_move_L:
   mov     r12b, [buffer + rcx]   ; wczytaj znak
   check_char r12d
