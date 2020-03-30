@@ -51,10 +51,10 @@ set_1_loop_%1:
 
 %macro q_plus 3
   add     %1d, %2d
+  mov     edi, %1d
+  sub     edi, TAB_SIZE
   cmp     %1d, TAB_SIZE
-  jb      change_%3
-  sub     %1d, TAB_SIZE
-change_%3:
+  cmovge  %1d, edi
 %endmacro
 
 section .text
@@ -125,6 +125,7 @@ check_perm_T:
   mov     r8, [LRT]         ; kazdy wskazuje poczatek czesci
   mov     r9, [LRT + 8]
   mov     r10, [LRT + 16]
+  xor     ebx, ebx
 
 read_loop:
   mov     edx, BUFF_SIZE
@@ -138,29 +139,19 @@ read_loop:
   xor     ecx, ecx    
 coding_loop:          ; increase modulo R
   inc     r15d
-  mov     edi, TAB_SIZE
-  xor     edi, r15d
-  jnz     no_oveflow_R 
-  xor     r15d, TAB_SIZE
-no_oveflow_R:
+  cmp     r15d, TAB_SIZE
+  cmovge  r15d, ebx
+  
   mov     edi, 27
   xor     edi, r15d      ; check if increase L
   jz      move_L
   mov     edi, 33
-  xor     edi, r15d      ; check if increase R
+  xor     edi, r15d      ; check if increase L
   jz      move_L
   mov     edi, 35
   xor     edi, r15d      ; check if increase L
   jz      move_L
-  jmp     no_move_L
-move_L:
-  inc     r14d           ; increase modulo L
-  mov     edi, TAB_SIZE
-  xor     edi, r14d
-  jnz     no_move_L 
-  xor     r14d, r14d
 no_move_L:
-
   mov     r12b, [buffer + rcx]   ; wczytaj znak
   check_char r12d
 
@@ -208,6 +199,12 @@ no_move_L:
   mov     rax, SYS_WRITE
   syscall
   jmp     read_loop
+
+move_L:
+  inc     r14d           ; increase modulo L
+  cmp     r14d, TAB_SIZE
+  cmovge  r14d, ebx
+  jmp     no_move_L
 
 ex_0:
   mov     eax, SYS_EXIT
